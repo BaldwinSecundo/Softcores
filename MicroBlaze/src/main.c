@@ -1,52 +1,27 @@
-/*
- * Przykładowa aplikacja bare-metal dla MicroBlaze V (RISC-V) na PYNQ-Z1.
- *  - miga LED podpięty do AXI GPIO,
- *  - wysyła tekst przez AXI UART Lite (9600 baud, ustawione w Vivado).
- *
- * Dostęp bezpośrednio do rejestrów - adresy zgodne z Address Editor:
- *   AXI GPIO     0x4000_0000
- *   AXI UARTLite 0x4060_0000
- */
-#include <stdint.h>
+#include "xil_printf.h"
+#include "xil_io.h"
+#include "xparameters.h"
 
-#define GPIO_BASE    0x40000000u
-#define GPIO_DATA    (*(volatile uint32_t *)(GPIO_BASE + 0x00))
-#define GPIO_TRI     (*(volatile uint32_t *)(GPIO_BASE + 0x04))
+#define GPIO_BASEADDR   XPAR_AXI_GPIO_0_BASEADDR
+#define GPIO_DATA       (GPIO_BASEADDR + 0x00)   // Data register
+#define GPIO_TRI        (GPIO_BASEADDR + 0x04)   // Direction (0 = output)
 
-#define UART_BASE    0x40600000u
-#define UART_TX      (*(volatile uint32_t *)(UART_BASE + 0x04))
-#define UART_STAT    (*(volatile uint32_t *)(UART_BASE + 0x08))
-#define UART_TX_FULL (1u << 3)
+#define DELAY           40000000
 
-static void uart_putc(char c)
+int main()
 {
-    while (UART_STAT & UART_TX_FULL) { }
-    UART_TX = (uint32_t)c;
-}
+    xil_printf("\r\n=== Direct GPIO Blink ===\r\n");
 
-static void uart_puts(const char *s)
-{
-    while (*s) {
-        if (*s == '\n') uart_putc('\r');
-        uart_putc(*s++);
-    }
-}
-
-static void delay(volatile uint32_t n)
-{
-    while (n--) { }
-}
-
-int main(void)
-{
-    GPIO_TRI = 0x0;                 /* wszystkie piny jako wyjścia */
-    uart_puts("=== Direct GPIO Blink ===\n");
+    // Ustaw kierunek na output
+    Xil_Out32(GPIO_TRI, 0x0);
 
     while (1) {
-        GPIO_DATA = 1;
-        delay(5000000);
-        GPIO_DATA = 0;
-        delay(5000000);
+        Xil_Out32(GPIO_DATA, 0x1);          // LED ON
+        for (volatile int i = 0; i < DELAY; i++);
+        xil_printf("\r\n=== Direct GPIO Blink ===\r\n");
+        Xil_Out32(GPIO_DATA, 0x0);          // LED OFF
+        for (volatile int i = 0; i < DELAY; i++);
     }
+
     return 0;
 }
